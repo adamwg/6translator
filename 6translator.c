@@ -14,6 +14,14 @@
 #include <time.h>
 #include <unistd.h>
 
+#define DEBUG 1
+
+#if DEBUG
+#define DPRINTF(x, vargs...) fprintf(stderr, x, ## vargs)
+#else
+#define DPRINTF(x, vargs...) 
+#endif
+
 enum cl_state { UNUSED, READ, WRITE4, WRITE6 };
 
 #define BUF_SZ 4096
@@ -42,29 +50,63 @@ struct cl *get_free_cl() {
 	return(NULL);
 }
 
+void del_client(int cn) {
+	struct cl *cl = &clients[cn];
+
+	shutdown(cl->sock4, SHUT_RDWR);
+	shutdown(cl->sock6, SHUT_RDWR);
+	close(cl->sock4);
+	close(cl->sock6);
+
+	cl->state = UNUSED;
+}
+
 void do_read4(int cn) {
 	struct cl *cl = &clients[cn];
 
-	cl->sz = read(cl->sock4, cl->buf, BUF_SZ);
+	cl->sz = recv(cl->sock4, cl->buf, BUF_SZ, 0);
+	if(cl->sz == -1) {
+		DPRINTF("Error reading sock4\n");
+		return;
+	} else if(cl->sz == 0) {
+		DPRINTF("Close from sock4\n");
+		del_client(cn);
+		return;
+	}
+	
 	cl->bp = 0;
-
 	cl->state = WRITE6;
 }
 
 void do_read6(int cn) {
 	struct cl *cl = &clients[cn];
 
-	cl->sz = read(cl->sock6, cl->buf, BUF_SZ);
+	cl->sz = recv(cl->sock6, cl->buf, BUF_SZ, 0);
+	if(cl->sz == -1) {
+		DPRINTF("Error reading sock6\n");
+		return;
+	} else if(cl->sz == 0) {
+		DPRINTF("Close from sock6\n");
+		del_client(cn);
+		return;
+	}
+	
 	cl->bp = 0;
-
 	cl->state = WRITE4;
 }
 
 void do_write4(int cn) {
 	struct cl *cl = &clients[cn];
+	int rd;
 
-	cl->bp += write(cl->sock4, cl->buf + cl->bp, cl->sz - cl->bp);
-	
+	rd = send(cl->sock4, cl->buf + cl->bp, cl->sz - cl->bp, 0);
+	if(rd == -1) {
+		DPRINTF("Error writing sock4\n");
+		del_client(cn);
+		return;
+	}
+	cl->bp += rd;
+
 	if(cl->bp == cl->sz) {
 		cl->state = READ;
 	}
@@ -72,13 +114,21 @@ void do_write4(int cn) {
 
 void do_write6(int cn) {
 	struct cl *cl = &clients[cn];
+	int rd;
 
-	cl->bp += write(cl->sock6, cl->buf + cl->bp, cl->sz - cl->bp);
+	rd = write(cl->sock6, cl->buf + cl->bp, cl->sz - cl->bp);
+	if(rd == -1) {
+		DPRINTF("Error writing sock6\n");
+		del_client(cn);
+		return;
+	}
+	cl->bp += rd;
+
 	if(cl->bp == cl->sz) {
 		cl->state = READ;
 	}
 }
-	
+
 int main(int argc, char **argv) {
 
 	struct cl *c;
@@ -104,6 +154,8 @@ int main(int argc, char **argv) {
 	port6 = atoi(argv[1]);
 	port4 = atoi(argv[2]);
 
+	printf("Listening on port %d (IPV6), connecting on port %d (IPV4)\n", port6, port4);
+
 	myaddr6.sin6_family = AF_INET6;
 	myaddr6.sin6_port = htons(port6);
 	myaddr6.sin6_addr = in6addr_any;
@@ -112,11 +164,25 @@ int main(int argc, char **argv) {
 	memset(&srvaddr, 0, srvaddrlen);
 	srvaddr.sin_family = AF_INET;
 	srvaddr.sin_port = htons(port4);
-	srvaddr.sin_addr.s_addr = inet_addr("localhost");
+	srvaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+	DPRINTF("Ready to listen...\n");
 
 	mysock = socket(AF_INET6, SOCK_STREAM, 0);
-	bind(mysock, (struct sockaddr *)&myaddr6, sin6_size);
-	listen(mysock, N_CLIENTS);
+	if(mysock == -1) {
+		printf("Error: could not create socket\n");
+		exit(EX_OSERR);
+	}
+	if(bind(mysock, (struct sockaddr *)&myaddr6, sin6_size) == -1) {
+		printf("Error: could not bind\n");
+		exit(EX_OSERR);
+	}
+	if(listen(mysock, N_CLIENTS) == -1) {
+		printf("Error: could not listen\n");
+		exit(EX_OSERR);
+	}
+
+	DPRINTF("Listening.\n");
 
 	while(1) {
 		FD_ZERO(&rfds);
@@ -146,11 +212,15 @@ int main(int argc, char **argv) {
 			}
 		}
 
+		DPRINTF("fd_sets ready... selecting\n");
+
 		st = select(ms + 1, &rfds, &wfds, NULL, NULL);
 		if(st == -1) {
+			DPRINTF("Select returned -1\n");
 			continue;
 		}
 		if(FD_ISSET(mysock, &rfds)) {
+			DPRINTF("Got connection\n");
 			c = get_free_cl();
 			if(c == NULL) {
 				/* Can't accept more connections right now */
@@ -163,17 +233,23 @@ int main(int argc, char **argv) {
 			c->sock6 = accept(mysock, (struct sockaddr *)&c->addr6, &c->addr6len);
 			c->sock4 = socket(AF_INET, SOCK_STREAM, 0);
 			
-			connect(c->sock4, (struct sockaddr *)&srvaddr, srvaddrlen);
+			if(connect(c->sock4, (struct sockaddr *)&srvaddr, srvaddrlen) == -1) {
+				DPRINTF("Could not connect\n");
+			}
 		}
 
 		for(i = 0; i < N_CLIENTS; i++) {
 			if(clients[i].state == READ && FD_ISSET(clients[i].sock4, &rfds)) {
+				DPRINTF("Read 4\n");
 				do_read4(i);
 			} else if(clients[i].state == READ && FD_ISSET(clients[i].sock6, &rfds)) {
+				DPRINTF("Read 6\n");
 				do_read6(i);
 			} else if(clients[i].state == WRITE4 && FD_ISSET(clients[i].sock4, &wfds)) {
+				DPRINTF("Write 4\n");
 				do_write4(i);
 			} else if(clients[i].state == WRITE6 && FD_ISSET(clients[i].sock6, &wfds)) {
+				DPRINTF("Write 6\n");
 				do_write6(i);
 			}
 		}
