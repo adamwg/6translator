@@ -108,6 +108,7 @@ void do_write4(int cn) {
 	cl->bp += rd;
 
 	if(cl->bp == cl->sz) {
+		DPRINTF("Done writing, now in READ\n");
 		cl->state = READ;
 	}
 }
@@ -125,6 +126,7 @@ void do_write6(int cn) {
 	cl->bp += rd;
 
 	if(cl->bp == cl->sz) {
+		DPRINTF("Done writing, now in READ\n");
 		cl->state = READ;
 	}
 }
@@ -197,6 +199,9 @@ int main(int argc, char **argv) {
 					FD_SET(clients[i].sock6, &rfds);
 					if(c->sock6 > ms) {
 						ms = c->sock6;
+					}
+					if(c->sock4 > ms) {
+						ms = c->sock4;
 					}
 				} else if(clients[i].state == WRITE6) {
 					FD_SET(clients[i].sock6, &wfds);
