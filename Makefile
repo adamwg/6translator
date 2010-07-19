@@ -18,7 +18,7 @@ debug:
 	@CFLAGS="-g -DDEBUG=1" make 6translator
 
 install: 6translator
-	install 6translator ${PREFIX}/bin
+	install -D 6translator ${PREFIX}/bin/6translator
 
 clean:
 	-rm -f *~ 6translator *.o
