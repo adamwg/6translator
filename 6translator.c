@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
 
 	memset(&myaddr, 0, sizeof(struct sockaddr_in6));
 	if(host6 == NULL) {
-		if((mysock = socket(AF_INET6, SOCK_STREAM, 0)) != 0) {
+		if((mysock = socket(AF_INET6, SOCK_STREAM, 0)) == -1) {
 			LOG(LOG_ERR, "Error: could not create listening socket\n");
 			exit(EX_OSERR);
 		}
@@ -265,6 +265,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	closelog();
 	return(EX_OK);
 }
 

@@ -7,7 +7,7 @@ all: 6translator
 	${CC} ${CFLAGS} -o 6translator 6translator.c
 
 debug:
-	@CFLAGS=-g make 6translator
+	@CFLAGS="-g -DDEBUG=1" make 6translator
 
 clean:
 	-rm -f *~ 6translator *.o
