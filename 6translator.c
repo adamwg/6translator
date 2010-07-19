@@ -275,7 +275,7 @@ void exit_usage() {
 	fprintf(stderr, "     Default host: any\n\n");
 	fprintf(stderr, "  -4 <ipv4 host>,<ipv4 port>  Specifies the (IPv4) host and port to connect to.\n");
 	fprintf(stderr, "     Default host: localhost\n\n");
-	fprintf(stderr, "  -f Stay in foreground\n");
+	fprintf(stderr, "  -f Stay in foreground.\n");
 	
 	exit(EX_USAGE);
 }

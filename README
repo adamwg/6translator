@@ -1,0 +1,51 @@
+		 6translator - An adapter for IPv4-only daemons on IPv6 servers
+================================================================================
+
+6translator opens up your IPv4 only daemons to the IPv4 world.  It listens for
+connections on IPv6, creates connections over IPv4, and shuffles data between
+them.  That's it!
+
+Installation
+------------
+
+$ make
+$ make install
+
+The default prefix is /usr.  Use PREFIX= to override it.
+
+Usage
+-----
+
+$ 6translator -6 [hostname,]port -4 [hostname,]port [-f]
+
+-6 <ipv6 host>,<ipv6 port>  Specifies the (IPv6) host and port to listen on.
+-4 <ipv4 host>,<ipv4 port>  Specifies the (IPv4) host and port to connect to.
+-f Stay in foreground (handy for debugging).
+
+-6 and -4 must specify at least a port.  If no hostnames are specified, it
+listens on any (IPv6) address and connects to localhost.
+
+If -f is specified, 6translator runs in the foreground and logs to stderr.
+Otherwise, it daemonizes and logs to syslog.
+
+Example
+-------
+
+To allow IPv6 clients to connect to your IPv4 IRC server on port 6668, use:
+
+$ 6translator -6 6668 -4 6667
+
+If your ircd only listens on the IPv4 addresses, you can use the same port by
+specifying the IPv6 address to listen on:
+
+$ 6translator -6 host6name,6667 -4 6667
+
+If you want to forward IPv6 connections to an IPv4 daemon on another server, you
+can specify the IPv4 hostname:
+
+$ 6translator -6 6667 -4 irc.example.org,6667
+
+License
+-------
+
+Licensed under the MIT License.  See the COPYING file for details.

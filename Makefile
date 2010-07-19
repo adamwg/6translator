@@ -1,6 +1,14 @@
 CC = gcc
 CFLAGS += -Wall
 
+ifndef PREFIX
+	PREFIX = /usr
+endif
+
+ifdef prefix
+	PREFIX = ${prefix}
+endif
+
 all: 6translator
 
 6translator: 6translator.c 6translator.h
@@ -8,6 +16,9 @@ all: 6translator
 
 debug:
 	@CFLAGS="-g -DDEBUG=1" make 6translator
+
+install: 6translator
+	install 6translator ${PREFIX}/bin
 
 clean:
 	-rm -f *~ 6translator *.o
