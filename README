@@ -5,6 +5,9 @@
 connections on IPv6, creates connections over IPv4, and shuffles data between
 them.  That's it!
 
+Homepage: http://xvx.ca/6translator
+GitHub: http://github.com/adamwg/6translator
+
 Installation
 ------------
 
